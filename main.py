@@ -1,4 +1,4 @@
-import random
+import numpy.random as random
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -8,7 +8,7 @@ from wordle import Wordle
 
 ROWS = 6
 LETTERS = 5
-GAMES = 10
+GAMES = 6
 
 w_bank = pd.read_csv('data/words.csv')
 w_bank = w_bank[w_bank['words'].str.len()==LETTERS]
@@ -60,7 +60,7 @@ if 'T' in str(control).upper() or 'P' in str(control).upper():
     results = pd.DataFrame(results)
     print(results)
     print(f'Win Percent = {(len(results[results["result"]==True]) / len(results)) * 100}%\nAverage Moves = {results[results["result"]==True]["moves"].mean()}')
-elif 'A' in str(control).upper():
+else:
     print('GAME ASSIST ACTIVATED\n---------------------')
     game = Wordle(
         None,
@@ -69,9 +69,14 @@ elif 'A' in str(control).upper():
     )
     bot = Agent(game)
     for i in range(ROWS):
-        guess = bot.choose_action()
-        print(f'\nSuggested Word = {guess}\n')
-        u_inp = input('What were the colours returned [ex. ybggy]?\n')
+        suggest = bot.choose_action()
+        print(f'SUGGESTED WORD = {suggest}')
+        v_inp = input(f'INPUT YOUR GUESS(DEFAULT {suggest}):\n')
+        u_inp = input('COLOURS RETURNED [ex. ybggy]?\n')
+        if v_inp == '':
+            guess = suggest
+        else:
+            guess = str(v_inp).upper() 
         game.colours[i] = [s for s in str(u_inp).upper()]
         game.board[i] = [s for s in str(guess).upper()]
         game.g_count += 1
