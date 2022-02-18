@@ -8,7 +8,7 @@ from wordle import Wordle
 
 ROWS = 6
 LETTERS = 5
-GAMES = 6
+GAMES = 100
 
 w_bank = pd.read_csv('data/words.csv')
 w_bank = w_bank[w_bank['words'].str.len()==LETTERS]
@@ -57,6 +57,7 @@ if 'T' in str(control).upper() or 'P' in str(control).upper():
             print(np.array(game.board),'\n')
         results.append({'word':word,'result':r[0],'moves':r[1]+1})
 
+    pd.set_option('display.max_rows', None)
     results = pd.DataFrame(results)
     print(results)
     print(f'Win Percent = {(len(results[results["result"]==True]) / len(results)) * 100}%\nAverage Moves = {results[results["result"]==True]["moves"].mean()}')

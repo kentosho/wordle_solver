@@ -67,5 +67,14 @@ class Agent:
         if True not in [True for s in self.prediction if s in self.vowels]:
             self.w_bank['w-score'] += self.w_bank['v-count'] / self.game.letters
         mv_bank = self.w_bank[self.w_bank['w-score']==self.w_bank['w-score'].max()]
-        result = random.choice(mv_bank['words'].tolist())
+        if self.game.g_count == 0:
+            result = 'MOVED'
+        elif self.game.g_count == 1:
+            result = 'PLANS'
+        elif self.game.g_count == 2:
+            result = 'RUGBY'
+        elif self.game.g_count == 3:
+            result = 'WITCH'
+        else:
+            result = random.choice(mv_bank['words'].tolist())
         return result
