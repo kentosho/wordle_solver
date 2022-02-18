@@ -20,6 +20,7 @@ if 'T' in str(control).upper() or 'P' in str(control).upper():
         print('PLAY GAME SELECTED\n---------------------')
     else:
         print('TEST SOLVER SELECTED\n---------------------\n')
+    f = open('fails.txt','a')
     results = []
     if 'P' in str(control).upper():
         silent = True
@@ -56,11 +57,13 @@ if 'T' in str(control).upper() or 'P' in str(control).upper():
                 print(f'\nSORRY YOU DID NOT WIN.\n')
             print(np.array(game.board),'\n')
         results.append({'word':word,'result':r[0],'moves':r[1]+1})
-
+        if r[0] == False:
+            f.write(word+'\n')
     pd.set_option('display.max_rows', None)
     results = pd.DataFrame(results)
     print(results)
     print(f'Win Percent = {(len(results[results["result"]==True]) / len(results)) * 100}%\nAverage Moves = {results[results["result"]==True]["moves"].mean()}')
+    f.close()
 else:
     print('GAME ASSIST ACTIVATED\n---------------------')
     game = Wordle(

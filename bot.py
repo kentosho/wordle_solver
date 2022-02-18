@@ -14,6 +14,7 @@ class Agent:
         self.prediction = ['' for _ in range(game.letters)]
         self.y_letters = {}
         self.g_letters = []
+        self.used_letters = []
 
     def calc_letter_probs(self):
         for x in range(self.game.letters):
@@ -26,12 +27,16 @@ class Agent:
             for x, c in enumerate(self.game.colours[self.game.g_count - 1]):
                 letter = self.game.board[self.game.g_count - 1][x]
                 if c == 'Y':
+                    if letter not in self.used_letters:
+                        self.used_letters.append(letter)
                     if letter not in self.y_letters:
                         self.y_letters[letter] = [x]
                     else:
                         if x not in self.y_letters[letter]:
                             self.y_letters[letter].append(x)
                 elif c == 'G':
+                    if letter not in self.used_letters:
+                        self.used_letters.append(letter)
                     self.prediction[x] = letter
                 else:
                     if letter in self.prediction:
@@ -69,11 +74,11 @@ class Agent:
         mv_bank = self.w_bank[self.w_bank['w-score']==self.w_bank['w-score'].max()]
         if self.game.g_count == 0:
             result = 'MOVED'
-        elif self.game.g_count == 1:
+        elif self.game.g_count == 1 and len(self.used_letters) < 4:
             result = 'PLANS'
-        elif self.game.g_count == 2:
+        elif self.game.g_count == 2 and len(self.used_letters) < 4:
             result = 'RUGBY'
-        elif self.game.g_count == 3:
+        elif self.game.g_count == 3 and len(self.used_letters) < 4:
             result = 'WITCH'
         else:
             result = random.choice(mv_bank['words'].tolist())
