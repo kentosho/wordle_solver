@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from bot import Agent
+from bot_ent import Agent
 from wordle import Wordle
 
 ROWS = 6
