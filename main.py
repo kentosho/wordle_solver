@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import numpy.random as random
 import numpy as np
 import pandas as pd
