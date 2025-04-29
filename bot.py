@@ -4,7 +4,7 @@ import pandas as pd
 
 class Agent:
     def __init__(self, game, f_name='data/words.csv'):
-        self.vowels = ['イ','ウ','ン','シ','ノ','カ']
+        self.vowels = ['イ','ウ','ン','シ','ノ','カ','ト','タ','ニ','レ']
         w_bank = pd.read_csv(f_name)
         w_bank = w_bank[w_bank['words'].str.len()==game.letters]
         w_bank['words'] = w_bank['words'].str.upper() #Convert all words to uppercase
@@ -54,6 +54,8 @@ class Agent:
         if len(self.g_letters) > 0:
             self.w_bank = self.w_bank[~self.w_bank['words'].str.contains('|'.join(self.g_letters))]
             self.g_letters = []
+            if len(self.g_letters) >= 4:
+                aete_random = 1
         if len(self.y_letters) > 0:
             y_str = '^' + ''.join(fr'(?=.*{l})' for l in self.y_letters)
             self.w_bank = self.w_bank[self.w_bank['words'].str.contains(y_str)]
