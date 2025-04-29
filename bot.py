@@ -4,7 +4,7 @@ import pandas as pd
 
 class Agent:
     def __init__(self, game, f_name='data/words.csv'):
-        self.vowels = ['A','E','I','O','U','Y']
+        self.vowels = ['イ','ウ','ン','シ','ノ','カ']
         w_bank = pd.read_csv(f_name)
         w_bank = w_bank[w_bank['words'].str.len()==game.letters]
         w_bank['words'] = w_bank['words'].str.upper() #Convert all words to uppercase
@@ -64,23 +64,24 @@ class Agent:
         for i, s in enumerate(self.prediction):
             if s != '':
                 self.w_bank = self.w_bank[self.w_bank['words'].str[i]==s]
-        self.w_bank['w-score'] = [0] * len(self.w_bank)
+        self.w_bank['w-score'] = [1] * len(self.w_bank)
         if len(self.w_bank) > 5:
             self.calc_letter_probs() #Recalculate letter position probability
         for x in range(self.game.letters):
             if self.prediction[x] == '':
-                self.w_bank['w-score'] += self.w_bank[f'p-{x}']
+                self.w_bank['w-score'] *= self.w_bank[f'p-{x}']
         if True not in [True for s in self.prediction if s in self.vowels]:
             self.w_bank['w-score'] += self.w_bank['v-count'] / self.game.letters
         mv_bank = self.w_bank[self.w_bank['w-score']==self.w_bank['w-score'].max()]
+        # print(mv_bank['w-score'])
         if self.game.g_count == 0:
-            result = 'MOVED'
-        elif self.game.g_count == 1 and len(self.used_letters) < 4:
-            result = 'PLANS'
-        elif self.game.g_count == 2 and len(self.used_letters) < 4:
-            result = 'RUGBY'
-        elif self.game.g_count == 3 and len(self.used_letters) < 4:
-            result = 'WITCH'
+            result = 'カントウシ'
+        elif self.game.g_count == 1 and len(self.used_letters) < 2:
+            result = 'ニクタイハ'
+        elif self.game.g_count == 2 and len(self.used_letters) < 2:
+            result = 'コワレモノ'
+        elif self.game.g_count == 3 and len(self.used_letters) < 2:
+            result = 'ジョセツキ'
         else:
             result = random.choice(mv_bank['words'].tolist())
         return result
