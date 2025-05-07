@@ -1,7 +1,7 @@
 from copy import deepcopy
 
 class Wordle:
-    def __init__(self, word, rows=6, letters=5):
+    def __init__(self, word, letters_list, rows=6, letters=5 ):
         self.g_count = 0
         self.word = word
         self.w_hash_table = {}
@@ -16,7 +16,7 @@ class Wordle:
         self.letters = letters
         self.board = [['' for _ in range(letters)] for _ in range(rows)]
         self.colours = [['' for _ in range(letters)] for _ in range(rows)]
-        self.alph = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z']
+        self.alph = letters_list
 
     def is_end(self):
         if self.board[-1] != ['' for _ in range(self.letters)]:

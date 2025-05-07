@@ -1,7 +1,9 @@
-#!/usr/bin/python3
+#!/usr/bin/python
+import os
 import numpy.random as random
 import numpy as np
 import pandas as pd
+from utsuho import HiraganaToKatakanaConverter
 from tqdm import tqdm
 
 from bot import Agent
@@ -11,18 +13,44 @@ ROWS = 10
 LETTERS = 5
 GAMES = 1000
 
-w_bank = pd.read_csv('data/words.csv')
-w_bank = w_bank[w_bank['words'].str.len()==LETTERS]
-w_bank['words'] = w_bank['words'].str.upper() #Convert all words to uppercase
+cnv = HiraganaToKatakanaConverter()
 
-# control = input('What would you like to do?\n\n-Test Solver [T]\n-Game Assist [A]\n-Play Game   [P]\n\n')
-print('GAME ASSIST ACTIVATED\n---------------------')
+w_bank = pd.read_csv('data/words.csv')
+letters_filename = 'data/letters.csv'
+
+w_bank = w_bank[w_bank['words'].str.len()==LETTERS]
+# w_bank['words'] = w_bank['words'].str.upper() #Convert all words to Uppercase
+w_bank = w_bank['words'].apply(cnv.convert) # Convert all words to Katakana
+
+letters_set = set()
+letters_freq = {}
+if os.path.exists(letters_filename):
+    with open(letters_filename) as f:
+        lines = f.read()
+        for line in lines.split("\n"):
+            ltr = str(line)
+            letters_set.update(ltr)
+else:
+    with open(letters_filename, 'w') as f:
+        for word in w_bank['words']:
+            letters_set.update(word)
+            for ltr in word:
+              if ltr in letters_freq :
+                  letters_freq[ltr] += 1
+              else:
+                  letters_freq[ltr] = 1
+        f.write('words, freq\n')
+        for letter in letters_set:
+            f.write(str(letter) +', '+ str(letters_freq[letter]) + '\n')
+letters_list = list(letters_set)
+
 game = Wordle(
     None,
+    letters_list,
     rows=ROWS,
-    letters=LETTERS
-)
-bot = Agent(game)
+    letters=LETTERS)
+
+bot = Agent(game,letters_list)
 for i in range(ROWS):
     suggest = bot.choose_action()
     print(f'SUGGESTED WORD = {suggest}')
