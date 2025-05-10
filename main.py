@@ -1,11 +1,10 @@
-#!/usr/bin/python
+#!/bin/env python
 import os
 import numpy.random as random
 import numpy as np
 import pandas as pd
 from utsuho import HiraganaToKatakanaConverter
 from tqdm import tqdm
-
 from bot import Agent
 from wordle import Wordle
 

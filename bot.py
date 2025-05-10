@@ -5,14 +5,12 @@ from utsuho import HiraganaToKatakanaConverter
 
 class Agent:
     def __init__(self, game, letters_list, f_name='data/words.csv', lf_name='data/letters.csv'):
-        self.vowels = ['イ','ウ','ン','シ','ノ','カ','ト','タ','ニ','レ']
         w_bank = pd.read_csv(f_name)
         l_bank = pd.read_csv(lf_name)
         w_bank = w_bank[w_bank['words'].str.len()==game.letters]
-        # w_bank['words'] = w_bank['words'].str.upper() #Convert all words to uppercase
+        w_bank['words'] = w_bank['words'].str.upper() #Convert all words to uppercase
         cnv = HiraganaToKatakanaConverter()
         w_bank['words'] = w_bank['words'].apply(cnv.convert) #Convert all words to カタカナ
-        w_bank['v-count'] = w_bank['words'].apply(lambda x: ''.join(set(x))).str.count('|'.join(self.vowels)) #Count amount of vowels in words
         # word bank for precise prediction
         self.w_bank = w_bank
         # word bank for letter-nallowing prediction
@@ -22,12 +20,11 @@ class Agent:
         self.prediction = ['' for _ in range(game.letters)]
         self.y_letters = {}
         self.g_letters = []
+        self.g_max = 0
         self.used_letters = []
         self.possible_letters = set(letters_list)
         pd.set_option('display.max_rows', None)
 
-    def has_not_used(word):
-        return all(l not in self.possible_letters for l in word)
     def calc_letter_probs(self):
         for x in range(self.game.letters):
             counts = self.w_bank['words'].str[x].value_counts(normalize=True).to_dict()
@@ -37,6 +34,7 @@ class Agent:
     def parse_board(self):
         if self.game.g_count > 0:
             g_hold = []
+            g_num = 0
             for x, c in enumerate(self.game.colours[self.game.g_count - 1]):
                 letter = self.game.board[self.game.g_count - 1][x]
                 if c == 'Y':
@@ -50,6 +48,7 @@ class Agent:
                 elif c == 'G':
                     if letter not in self.used_letters:
                         self.used_letters.append(letter)
+                    g_num += 1
                     self.prediction[x] = letter
                 else:
                     self.possible_letters.discard(letter)
@@ -62,6 +61,7 @@ class Agent:
                         self.g_letters.append(letter)
             self.possible_letters = self.possible_letters - set(self.used_letters)
             self.g_letters = [l for l in self.g_letters if l not in self.y_letters and l not in self.prediction]
+            if g_num > self.g_max : self.g_max = g_num
 
     def choose_action(self):
         self.parse_board()
@@ -69,8 +69,6 @@ class Agent:
         if len(self.g_letters) > 0:
             self.w_bank = self.w_bank[~self.w_bank['words'].str.contains('|'.join(self.g_letters))]
             self.g_letters = []
-            if len(self.g_letters) >= 3 and len(self.w_bank) > 5 :
-                nallow_predictions = True
         if len(self.y_letters) > 0:
             y_str = '^' + ''.join(fr'(?=.*{l})' for l in self.y_letters)
             self.w_bank = self.w_bank[self.w_bank['words'].str.contains(y_str)]
@@ -80,6 +78,9 @@ class Agent:
             self.y_letters = {}
         if len(self.used_letters) < 2:
             print("Used letters less than 2: nallow mode")
+            nallow_predictions = True
+        if  self.g_max >= 4 :
+            print("4 green letters: prefer nallow mode")
             nallow_predictions = True
         #Recalculate letter position probability
         self.calc_letter_probs()
@@ -104,23 +105,18 @@ class Agent:
         for x in range(self.game.letters):
             if self.prediction[x] == '':
                 self.w_bank['w-score'] *= self.w_bank[f'p-{x}']
+        if nallow_predictions and len(self.w_bank) < 20 :
+            nallow_predictions = False
+        if nallow_predictions and (self.game.rows - self.game.g_count) <= 4:
+            nallow_predictions = False
         # if True not in [True for s in self.prediction if s in self.vowels]:
         #     self.w_bank['w-score'] += self.w_bank['v-count'] / self.game.letters
         mv_bank = self.w_bank[self.w_bank['w-score']==self.w_bank['w-score'].max()]
-        # print(mv_bank['w-score'])
-        # if self.game.g_count == 0:
-        #     result = 'カントウシ'
-        # elif self.game.g_count == 1 and len(self.used_letters) < 2:
-        #     result = 'ニクタイハ'
-        # elif self.game.g_count == 2 and len(self.used_letters) < 2:
-        #     result = 'コワレモノ'
-        # elif self.game.g_count == 3 and len(self.used_letters) < 2:
-        #     result = 'ジョセツキ'
-        # else:
+        
         if nallow_predictions :
-            print("letter-nallowing mode")
+            print(str(len(self.w_bank)) + " words left: letter-nallowing mode")
             result = random.choice(mpv_bank['words'].tolist())
         else :
-            print("presice mode")
+            print(str(len(self.w_bank)) + " words left:  presice mode")
             result = random.choice(mv_bank['words'].tolist())
         return result
