@@ -64,6 +64,7 @@ class Agent:
             if g_num > self.g_max : self.g_max = g_num
 
     def choose_action(self):
+        # print(self.prediction)
         self.parse_board()
         nallow_prediction = False
         manygreen_prediction = False
@@ -82,28 +83,45 @@ class Agent:
             print("Used letters less than 2: nallow mode")
             nallow_prediction = True
         # print("predictions: " +str(self.prediction))
-        if self.g_max >= 3 and y_len == 0 and \
+        if self.g_max >= 2 and y_len == 0 and \
                 (self.game.letters - self.g_max) * (self.game.rows - self.game.g_count - 1) \
                 < len(self.w_bank) and \
                 (self.game.rows - self.game.g_count) > 1:
-            print("many green letters: nallow mode")
+            print("many green letters: non green letters nallow mode")
             nallow_prediction = True
             manygreen_prediction = True
-            not_green_letters = set()
-            not_green = set()
+            not_green_letters = []
+            not_green = {}
+            not_green_unique = []
             for i,s in enumerate(self.prediction):
                 if self.prediction[i] == '':
-                    not_green.add(i)
-            for i,r in self.w_bank.iterrows():
-                for j,w in enumerate(r['words']):
-                    for k in not_green:
-                        not_green_letters.add(r['words'][k])
-            
+                   not_green_letters.append(i)
+            not_green_letters_set = set(not_green_letters)
+            for _, bank_row in self.w_bank.iterrows():
+                for j, l in enumerate(bank_row['words']):
+                # 現在の文字が not_green_letters に含まれているか確認
+                   if j in not_green_letters:  # インデックスを確認
+                       if l in not_green:
+                           not_green[l] += 1
+                       else:
+                           not_green[l] = 1
+                           not_green_unique.append(l)
+#            for i,bank_row in self.w_bank.iterrows():
+#                # print(bank_row['words'])
+#                for j, l in enumerate(bank_row['words']):
+#                    if l in not_green_letters:
+#                        if  l in not_green:
+#                            not_green[l] += 1
+#                        else:
+#                            not_green[l] = 1
+        #    for i in range(0, len(not_green_unique), 5):
+        #        print("not green: " ,not_green_unique[i:i+5])
         #Recalculate letter position probability
         self.calc_letter_probs()
 
-        # nallowing possible words bank 
+        # nallowing possible letters words bank 
         self.pw_bank['w-score'] = [1] * len(self.pw_bank)
+        self.pw_bank['ng-count'] = [0] * len(self.pw_bank)
         pattern = "[" + "".join(self.possible_letters) + "]"
         self.pw_bank = self.pw_bank[self.pw_bank['words'].apply(lambda w: all(l in self.possible_letters for l in w))]
         if len(self.pw_bank) == 0:
@@ -112,13 +130,15 @@ class Agent:
         else:
             for x in range(self.game.letters):
                 self.pw_bank['w-score'] *= self.pw_bank[f'p-{x}']
-                if manygreen_prediction :
-                    self.pw_bank['ng-count'] = [0] * len(self.pw_bank) 
-                    self.pw_bank['ng-count'] = self.pw_bank['words'].apply(lambda x: sum(1 for letter in x if letter in not_green_letters))
-                    self.pw_bank['w-score'] += self.pw_bank['ng-count']
+            if manygreen_prediction :
+                # self.pw_bank['ng-count'] = self.pw_bank['words'].apply(lambda x: sum(1 for letter in x if letter in not_green_letters))
+                # self.pw_bank['ng-count'] = self.pw_bank['words'].apply(lambda x: sum(1 for l in x if l in not_green))
+                self.pw_bank['ng-count'] = self.pw_bank['words'].apply(
+                    lambda w: sum(not_green[l] for l in w if l in not_green))
+            self.pw_bank['w-score'] += self.pw_bank['ng-count']
             mpv_bank = self.pw_bank[self.pw_bank['w-score']==self.pw_bank['w-score'].max()]
 
-        # precise mode  prediction
+        # precise mode words bank w_bank
         for i, s in enumerate(self.prediction):
             if s != '':
                 self.w_bank = self.w_bank[self.w_bank['words'].str[i]==s]
@@ -133,7 +153,13 @@ class Agent:
         if nallow_prediction :
             print(str(len(self.w_bank)) + " words left: letter-nallowing mode")
             result = random.choice(mpv_bank['words'].tolist())
+            cand_words = self.w_bank['words'].head(10).tolist()
+            for i in range(0, len(cand_words), 5):
+                print(cand_words[i:i+5])
         else :
             print(str(len(self.w_bank)) + " words left:  presice mode")
+            cand_words = self.w_bank['words'].head(10).tolist()
+            for i in range(0, len(cand_words), 5):
+                print(cand_words[i:i+5])
             result = random.choice(mv_bank['words'].tolist())
         return result
