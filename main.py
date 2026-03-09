@@ -33,7 +33,6 @@ for word in w_bank['words'] :
             letters_freq[ltr] = 1
 letters_list = list(letters_set)
 """
-
 game = Wordle(
     None,
     rows=ROWS,

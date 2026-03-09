@@ -1,11 +1,15 @@
 import numpy.random as random
 import numpy as np
 import pandas as pd
+import os
 from utsuho import HiraganaToKatakanaConverter
+
 
 class Agent:
     def __init__(self, game, f_name='data/words.csv'):
-        w_bank = pd.read_csv(f_name)
+        real_path = os.path.realpath(__file__)
+        data_name= os.path.dirname(real_path) + "/" + f_name 
+        w_bank = pd.read_csv(data_name)
         w_bank = w_bank[w_bank['words'].str.len()==game.letters]
         cnv = HiraganaToKatakanaConverter()
         w_bank['words'] = w_bank['words'].str.upper() #Convert all words to uppercase
