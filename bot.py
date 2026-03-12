@@ -1,23 +1,21 @@
 import numpy.random as random
-import numpy as np
 import pandas as pd
 import os
 from utsuho import HiraganaToKatakanaConverter
+
+pd.set_option('display.max_rows', None)
 
 
 class Agent:
     def __init__(self, game, f_name='data/words.csv'):
         real_path = os.path.realpath(__file__)
-        data_name= os.path.dirname(real_path) + "/" + f_name 
-        w_bank = pd.read_csv(data_name)
-        w_bank = w_bank[w_bank['words'].str.len()==game.letters]
+        data_path = os.path.dirname(real_path) + "/" + f_name
+        w_bank = pd.read_csv(data_path)
+        w_bank = w_bank[w_bank['words'].str.len() == game.letters]
         cnv = HiraganaToKatakanaConverter()
-        w_bank['words'] = w_bank['words'].str.upper() #Convert all words to uppercase
-        w_bank['words'] = w_bank['words'].apply(cnv.convert) #Convert all words to カタカナ
-        letters_list =  [chr(code) for code in range(0x30A0, 0x31F0)]
-        # word bank for precise prediction
+        w_bank['words'] = w_bank['words'].str.upper().apply(cnv.convert)
+        letters_list = [chr(code) for code in range(0x30A0, 0x31F0)]
         self.w_bank = w_bank
-        # word bank for letter-nallowing prediction
         self.pw_bank = w_bank[w_bank['words'].apply(lambda w: len(set(w)) == len(w))].copy()
         self.game = game
         self.prediction = ['' for _ in range(game.letters)]
@@ -26,8 +24,6 @@ class Agent:
         self.g_max = 0
         self.used_letters = []
         self.possible_letters = set(letters_list)
-        self.last_letters = set(letters_list)
-        pd.set_option('display.max_rows', None)
 
     def calc_letter_probs(self):
         for x in range(self.game.letters):
@@ -35,135 +31,108 @@ class Agent:
             self.w_bank[f'p-{x}'] = self.w_bank['words'].str[x].map(counts)
             pcounts = self.pw_bank['words'].str[x].value_counts(normalize=True).to_dict()
             self.pw_bank[f'p-{x}'] = self.pw_bank['words'].str[x].map(pcounts)
+
     def parse_board(self):
-        if self.game.g_count > 0:
-            g_hold = []
-            g_num = 0
-            for x, c in enumerate(self.game.colours[self.game.g_count - 1]):
-                letter = self.game.board[self.game.g_count - 1][x]
-                if c == 'Y':
-                    if letter not in self.used_letters:
-                        self.used_letters.append(letter)
-                    if letter not in self.y_letters:
-                        self.y_letters[letter] = [x]
-                    else:
-                        if x not in self.y_letters[letter]:
-                            self.y_letters[letter].append(x)
-                elif c == 'G':
-                    if letter not in self.used_letters:
-                        self.used_letters.append(letter)
-                    g_num += 1
-                    self.prediction[x] = letter
-                else:
-                    self.possible_letters.discard(letter)
-                    if letter in self.prediction:
-                        if letter not in self.y_letters:
-                            self.y_letters[letter] = [x]
-                        else:
-                            self.y_letters[letter].append(x)
-                    elif letter not in self.g_letters:
-                        self.g_letters.append(letter)
-            self.possible_letters = self.possible_letters - set(self.used_letters)
-            self.g_letters = [l for l in self.g_letters if l not in self.y_letters and l not in self.prediction]
-            if g_num > self.g_max : self.g_max = g_num
+        if self.game.g_count == 0:
+            return
+        g_num = 0
+        row = self.game.g_count - 1
+        for x, c in enumerate(self.game.colours[row]):
+            letter = self.game.board[row][x]
+            if c == 'Y':
+                if letter not in self.used_letters:
+                    self.used_letters.append(letter)
+                self.y_letters.setdefault(letter, [])
+                if x not in self.y_letters[letter]:
+                    self.y_letters[letter].append(x)
+            elif c == 'G':
+                if letter not in self.used_letters:
+                    self.used_letters.append(letter)
+                g_num += 1
+                self.prediction[x] = letter
+            else:  # B
+                self.possible_letters.discard(letter)
+                if letter in self.prediction:
+                    self.y_letters.setdefault(letter, [])
+                    self.y_letters[letter].append(x)
+                elif letter not in self.g_letters:
+                    self.g_letters.append(letter)
+        self.possible_letters -= set(self.used_letters)
+        self.g_letters = [l for l in self.g_letters if l not in self.y_letters and l not in self.prediction]
+        if g_num > self.g_max:
+            self.g_max = g_num
 
     def choose_action(self):
-        # print(self.prediction)
         self.parse_board()
-        nallow_prediction = False
+        narrow_prediction = False
         manygreen_prediction = False
         y_len = len(self.y_letters)
-        if len(self.g_letters) > 0:
+
+        if self.g_letters:
             self.w_bank = self.w_bank[~self.w_bank['words'].str.contains('|'.join(self.g_letters))]
             self.g_letters = []
-        if len(self.y_letters) > 0:
+        if self.y_letters:
             y_str = '^' + ''.join(fr'(?=.*{l})' for l in self.y_letters)
             self.w_bank = self.w_bank[self.w_bank['words'].str.contains(y_str)]
-            for s, p in self.y_letters.items():
-                for i in p:
-                    self.w_bank = self.w_bank[self.w_bank['words'].str[i]!=s]
+            for s, positions in self.y_letters.items():
+                for i in positions:
+                    self.w_bank = self.w_bank[self.w_bank['words'].str[i] != s]
             self.y_letters = {}
+
         if len(self.used_letters) < 2:
-            print("Used letters less than 2: nallow mode")
-            nallow_prediction = True
-        # print("predictions: " +str(self.prediction))
+            print("Used letters less than 2: narrow mode")
+            narrow_prediction = True
+
+        not_green = {}
         if self.g_max >= 2 and y_len == 0 and \
                 (self.game.letters - self.g_max) * (self.game.rows - self.game.g_count - 1) \
                 < len(self.w_bank) and \
                 (self.game.rows - self.game.g_count) > 1:
-            print("many green letters: non green letters nallow mode")
-            nallow_prediction = True
+            print("Many green letters: non-green letter narrow mode")
+            narrow_prediction = True
             manygreen_prediction = True
-            not_green_letters = []
-            not_green = {}
-            not_green_unique = []
-            for i,s in enumerate(self.prediction):
-                if self.prediction[i] == '':
-                   not_green_letters.append(i)
-            not_green_letters_set = set(not_green_letters)
+            empty_positions = {i for i, s in enumerate(self.prediction) if s == ''}
             for _, bank_row in self.w_bank.iterrows():
                 for j, l in enumerate(bank_row['words']):
-                # 現在の文字が not_green_letters に含まれているか確認
-                   if j in not_green_letters:  # インデックスを確認
-                       if l in not_green:
-                           not_green[l] += 1
-                       else:
-                           not_green[l] = 1
-                           not_green_unique.append(l)
-#            for i,bank_row in self.w_bank.iterrows():
-#                # print(bank_row['words'])
-#                for j, l in enumerate(bank_row['words']):
-#                    if l in not_green_letters:
-#                        if  l in not_green:
-#                            not_green[l] += 1
-#                        else:
-#                            not_green[l] = 1
-        #    for i in range(0, len(not_green_unique), 5):
-        #        print("not green: " ,not_green_unique[i:i+5])
-        #Recalculate letter position probability
+                    if j in empty_positions:
+                        not_green[l] = not_green.get(l, 0) + 1
+
         self.calc_letter_probs()
 
-        # nallowing possible letters words bank 
-        self.pw_bank['w-score'] = [1] * len(self.pw_bank)
-        self.pw_bank['ng-count'] = [0] * len(self.pw_bank)
-        pattern = "[" + "".join(self.possible_letters) + "]"
-        self.pw_bank = self.pw_bank[self.pw_bank['words'].apply(lambda w: all(l in self.possible_letters for l in w))]
+        self.pw_bank['w-score'] = 1.0
+        self.pw_bank['ng-count'] = 0
+        self.pw_bank = self.pw_bank[self.pw_bank['words'].apply(
+            lambda w: all(l in self.possible_letters for l in w))]
         if len(self.pw_bank) == 0:
-            print("nallow predictions have exausted")
-            nallow_prediction = False
+            print("Narrow predictions exhausted")
+            narrow_prediction = False
         else:
             for x in range(self.game.letters):
                 self.pw_bank['w-score'] *= self.pw_bank[f'p-{x}']
-            if manygreen_prediction :
-                # self.pw_bank['ng-count'] = self.pw_bank['words'].apply(lambda x: sum(1 for letter in x if letter in not_green_letters))
-                # self.pw_bank['ng-count'] = self.pw_bank['words'].apply(lambda x: sum(1 for l in x if l in not_green))
+            if manygreen_prediction:
                 self.pw_bank['ng-count'] = self.pw_bank['words'].apply(
-                    lambda w: sum(not_green[l] for l in w if l in not_green))
+                    lambda w: sum(not_green.get(l, 0) for l in w))
             self.pw_bank['w-score'] += self.pw_bank['ng-count']
-            mpv_bank = self.pw_bank[self.pw_bank['w-score']==self.pw_bank['w-score'].max()]
+            mpv_bank = self.pw_bank[self.pw_bank['w-score'] == self.pw_bank['w-score'].max()]
 
-        # precise mode words bank w_bank
         for i, s in enumerate(self.prediction):
             if s != '':
-                self.w_bank = self.w_bank[self.w_bank['words'].str[i]==s]
-        self.w_bank['w-score'] = [1] * len(self.w_bank)
+                self.w_bank = self.w_bank[self.w_bank['words'].str[i] == s]
+        self.w_bank['w-score'] = 1.0
         for x in range(self.game.letters):
             if self.prediction[x] == '':
                 self.w_bank['w-score'] *= self.w_bank[f'p-{x}']
-        if nallow_prediction and len(self.w_bank) < (self.game.rows - self.game.g_count) :
-            nallow_prediction = False
-        mv_bank = self.w_bank[self.w_bank['w-score']==self.w_bank['w-score'].max()]
-        
-        if nallow_prediction :
-            print(str(len(self.w_bank)) + " words left: letter-nallowing mode")
-            result = random.choice(mpv_bank['words'].tolist())
-            cand_words = self.w_bank['words'].head(10).tolist()
-            for i in range(0, len(cand_words), 5):
-                print(cand_words[i:i+5])
-        else :
-            print(str(len(self.w_bank)) + " words left:  presice mode")
-            cand_words = self.w_bank['words'].head(10).tolist()
-            for i in range(0, len(cand_words), 5):
-                print(cand_words[i:i+5])
-            result = random.choice(mv_bank['words'].tolist())
-        return result
+        if narrow_prediction and len(self.w_bank) < (self.game.rows - self.game.g_count):
+            narrow_prediction = False
+        mv_bank = self.w_bank[self.w_bank['w-score'] == self.w_bank['w-score'].max()]
+
+        cand_words = self.w_bank['words'].head(10).tolist()
+        for i in range(0, len(cand_words), 5):
+            print(cand_words[i:i+5])
+
+        if narrow_prediction:
+            print(f"{len(self.w_bank)} words left: narrow mode")
+            return random.choice(mpv_bank['words'].tolist())
+        else:
+            print(f"{len(self.w_bank)} words left: precise mode")
+            return random.choice(mv_bank['words'].tolist())
