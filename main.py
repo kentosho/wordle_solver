@@ -9,7 +9,10 @@ game = Wordle(None, rows=ROWS, letters=LETTERS)
 bot = Agent(game)
 
 for i in range(ROWS):
-    suggest = bot.choose_action()
+    if i == 0 :
+        suggest = "キャッシュ"
+    else :
+        suggest = bot.choose_action()
     print(f'SUGGESTED WORD = {suggest}')
     v_inp = input(f'INPUT YOUR GUESS (DEFAULT {suggest}):\n')
     u_inp = input('COLOURS RETURNED [ex. ybggy]?\n')
