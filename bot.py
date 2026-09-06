@@ -3,6 +3,7 @@ import pandas as pd
 import os
 from utsuho import HiraganaToKatakanaConverter
 
+COND_NUM=20
 pd.set_option('display.max_rows', None)
 
 
@@ -11,7 +12,7 @@ class Agent:
         real_path = os.path.realpath(__file__)
         data_path = os.path.dirname(real_path) + "/" + f_name
         w_bank = pd.read_csv(data_path)
-        w_bank = w_bank[w_bank['words'].str.len() == game.letters]
+        w_bank = w_bank[w_bank['words'].str.len() == game.letters] 
         cnv = HiraganaToKatakanaConverter()
         w_bank['words'] = w_bank['words'].str.upper().apply(cnv.convert)
         letters_list = [chr(code) for code in range(0x30A0, 0x31F0)]
@@ -126,7 +127,7 @@ class Agent:
             narrow_prediction = False
         mv_bank = self.w_bank[self.w_bank['w-score'] == self.w_bank['w-score'].max()]
 
-        cand_words = self.w_bank['words'].head(10).tolist()
+        cand_words = self.w_bank['words'].head(COND_NUM).tolist()
         for i in range(0, len(cand_words), 5):
             print(cand_words[i:i+5])
 
